@@ -16,6 +16,8 @@ public class StupidSlotsScript : MonoBehaviour {
     public Material[] colors;
     public Font[] fonts;
     public Material[] fontMats;
+    public Font comicSans;
+    public Material comicSansMat;
 
     private int[][] orders = { new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }, new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }, new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 } };
     private Material[][] slotColors = new Material[3][] { new Material[10], new Material[10], new Material[10] };
@@ -44,14 +46,15 @@ public class StupidSlotsScript : MonoBehaviour {
     int currentValue;
     int[] valuesUpper, valuesLower = new int[3];
     int[] allValues = new int[6];
+    int[] relevantDigits;
+    List<int> generatedPath = new List<int>();
+    List<int> allAnswers = new List<int>();
 
-    void Awake () {
-        moduleId = moduleIdCounter++;
-        
+    void Awake ()
+    {
+        moduleId = moduleIdCounter++;     
         foreach (KMSelectable arrow in arrows)
-        {
             arrow.OnInteract += delegate () { ArrowPress(Array.IndexOf(arrows,arrow)); return false; };
-        }
         submit.OnInteract += delegate () { if (!isAnimating) StartCoroutine(Submit()); return false; };
 
     }
@@ -60,38 +63,52 @@ public class StupidSlotsScript : MonoBehaviour {
     {
         GetDisplayInfo();
         GetArrows();
-        GetValidities();
         GetStartingNum();
+        DoLogging();
     }
 
     void ArrowPress(int pos)
     {
-        currentValue = (currentValue + allValues[pos]) % 1000;
+        Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, arrows[pos].transform);
+        arrows[pos].AddInteractionPunch(0.2f);
+        if (moduleSolved || isAnimating) return;
+        currentValue = Mod((currentValue + allValues[pos]), 1000);
         SetDisplays();
     }
 
     void GetArrows()
     {
-        List<int> relevantValues = new List<int>
+        do
         {
-            UnityEngine.Random.Range(1, 16) * 2,
-            UnityEngine.Random.Range(1, 16) * 2 - 1,
-            UnityEngine.Random.Range(1, 16) * -2,
-            UnityEngine.Random.Range(1, 16) * -2 + 1,
-        };
-        relevantValues.Shuffle();
-        valuesUpper = new int[] { 0, relevantValues[0], relevantValues[1] };
-        valuesLower = new int[] { 0, relevantValues[2], relevantValues[3] };
-        valuesUpper.Shuffle();
-        valuesLower.Shuffle();
-        allValues = valuesUpper.Concat(valuesLower).ToArray();
-        Debug.LogFormat("[Stupid Slots #{0}] The arrow values in reading order are: {1}", moduleId, allValues.Join());
+            allAnswers.Clear();
+            List<int> relevantValues = new List<int>
+            {
+                UnityEngine.Random.Range(1, 16) * 2,
+                UnityEngine.Random.Range(1, 16) * 2 - 1,
+                UnityEngine.Random.Range(1, 16) * -2,
+                UnityEngine.Random.Range(1, 16) * -2 + 1,
+            };
+            relevantValues.Shuffle();
+            valuesUpper = new int[] { 0, relevantValues[0], relevantValues[1] };
+            valuesLower = new int[] { 0, relevantValues[2], relevantValues[3] };
+            valuesUpper.Shuffle();
+            valuesLower.Shuffle();
+            allValues = valuesUpper.Concat(valuesLower).ToArray();
+            relevantDigits = new int[]
+            {
+                valuesUpper.First(x => x != 0),
+                valuesLower.First(x => x != 0),
+                valuesUpper.Last(x => x != 0),
+                valuesLower.Last(x => x != 0)
+            };
+            for (int i = 0; i < 1000; i++)
+            {
+                if (CheckValidities(i))
+                    allAnswers.Add(i);
+            }
+        } while (allAnswers.Count < 50);
     }
 
-    int Mod(int input, int modulus)
-    {
-        return input % modulus + modulus % modulus;
-    }
 
     void GetDisplayInfo()
     {
@@ -131,31 +148,178 @@ public class StupidSlotsScript : MonoBehaviour {
             targetMesh.transform.localScale    = slotFontPosisions[slotIndex][digit][1];
         }
     }
-    void GetStartingNum()
+    void GetStartingNum() //Generates a random number which is valid, and then backtracks from there to guarantee a solution.
     {
-        currentValue = UnityEngine.Random.Range(0, 1000);
-        Debug.LogFormat("[Stupid Slots #{0}] The starting value is {1}.", moduleId, currentValue.ToString());
+        currentValue = allAnswers.PickRandom();
+        for (int i = 0; i < UnityEngine.Random.Range(10,21); i++)
+        {
+            int num = relevantDigits.PickRandom();
+            generatedPath.Add(num);
+            currentValue = Mod(currentValue - num, 1000);
+        }
+        generatedPath.Reverse();
         SetDisplays();
     }
-    void GetValidities()
+    void LogValidities()
     {
-        
+        int[] operationResults = new int[] { Mod(relevantDigits[1], 5), Mod(relevantDigits[3], 5) };
+        for (int i = 0; i < 2; i++)
+        {
+            switch (Mod(relevantDigits[2*i], 5))
+            {
+                case 0: Debug.LogFormat("[Stupid Slots #{0}] The number, modulo 5, must equal {1} or {2}.", moduleId, operationResults[i], operationResults[i] + 5); break;
+                case 1: Debug.LogFormat("[Stupid Slots #{0}] The digital root must be {1} or {2}.", moduleId, operationResults[i], operationResults[i] + 5); break;
+                case 2: Debug.LogFormat("[Stupid Slots #{0}] The number must be divisible by {1} or {2}.", moduleId, operationResults[i], operationResults[i] + 5); break;
+                case 3: Debug.LogFormat("[Stupid Slots #{0}] The number's first digit must be {1} or {2}.", moduleId, operationResults[i], operationResults[i] + 5); break;
+                case 4: Debug.LogFormat("[Stupid Slots #{0}] The number's second digit must be {1} or {2}.", moduleId, operationResults[i], operationResults[i] + 5); break;
+            }
+        }
+        Debug.LogFormat("[Stupid Slots #{0}] In addition, the third digit of the number must be one of the following: {1}", moduleId,
+            relevantDigits.Select(x => Mod(x, 10)).Distinct().Join(", "));
+    }
+
+    void DoLogging()
+    {
+        Debug.LogFormat("[Stupid Slots #{0}] The starting value is {1}.", moduleId, currentValue.ToString());
+        Debug.LogFormat("[Stupid Slots #{0}] The arrow values in reading order are: {1} // {2}", moduleId, valuesUpper.Join(", "), valuesLower.Join(", "));
+        LogValidities();
+    }
+
+    bool CheckValidities(int number)
+    {
+        int[] operationResults = new int[] { Mod(relevantDigits[1], 5), Mod(relevantDigits[3], 5) };
+        bool[] validities = new bool[3];
+        for (int i = 0; i < 2; i++)
+        {
+            switch (Mod(relevantDigits[2*i], 5))
+            {
+                case 0: if (number % 5 == operationResults[i]) validities[i] = true; break; //mod 5 will never be greater than 5, so we don't need to account for the +5 case. 
+                case 1: if ((number - 1) % 9 + 1 == operationResults[i] || (number - 1) % 9 + 1 == operationResults[i] + 5) validities[i] = true; break;
+                case 2:
+                    if (operationResults[i] == 0) break; // Make sure to account for divisibility by 0.
+                    if (number % operationResults[i] == 0 || number % (operationResults[i] + 5) == 0) validities[i] = true; break;
+                case 3: if ((number / 100) == operationResults[i] || (number / 100) == operationResults[i] + 5) validities[i] = true; break;
+                case 4: if ((number % 100 / 10) == operationResults[i] || number % 100 / 10 == operationResults[i] + 5) validities[i] = true; break;
+            }
+        }
+        if (relevantDigits.Select(x => Mod(x, 10)).Contains(number % 10))
+            validities[2] = true;
+
+        return validities.All(x => x);
+    }
+    int Mod(int input, int modulus)
+    {
+        return (input % modulus + modulus) % modulus;
     }
 
     IEnumerator Submit()
     {
+        Audio.PlaySoundAtTransform("boing", submit.transform);
+        submit.AddInteractionPunch(10);
+        StartCoroutine(Spin());
+        if (moduleSolved) yield break;
+        bool willSolve;
+        Audio.PlaySoundAtTransform("bogosort", transform);
+        
+        Debug.LogFormat("[Stupid Slots #{0}] Submitted value {1}.", moduleId, currentValue);
+        willSolve = CheckValidities(currentValue);
+        if (willSolve) moduleSolved = true;
+
+        isAnimating = true;
+        for (int i = 0; i < 22; i++)
+        {
+            currentValue = UnityEngine.Random.Range(0, 1000);
+            SetDisplays();
+            yield return new WaitForSecondsRealtime(0.25f);
+        }
+        isAnimating = false;
+        if (willSolve)
+        {
+            Debug.LogFormat("[Stupid Slots #{0}] That was correct. Module solved.", moduleId);
+            for (int i = 0; i < 3; i++)
+            {
+                displays[i].GetComponent<MeshRenderer>().material = colors[3]; //set displays to lime green
+                TextMesh chosenMesh = displays[i].GetComponentInChildren<TextMesh>();
+                chosenMesh.text = ":)";
+                chosenMesh.font = comicSans;
+                chosenMesh.GetComponent<MeshRenderer>().material = comicSansMat;
+                chosenMesh.color = colors[8].color; //sets text color to white
+                chosenMesh.transform.localPosition = new Vector3(0, -1, 4);
+                chosenMesh.transform.localScale = Vector3.one * 0.85f;
+            }
+            GetComponent<KMBombModule>().HandlePass();
+        }
+        else
+        {
+            Debug.LogFormat("[Stupid Slots #{0}] That was incorrect. Strike incurred.", moduleId);
+            GetComponent<KMBombModule>().HandleStrike();
+            generatedPath.Clear();
+            GetStartingNum();
+        }
         yield return null;
+    }
+    IEnumerator Spin()
+    {
+        for (int i = 0; i < 45; i++)
+        {
+            submit.transform.localEulerAngles += new Vector3(0, 8, 0);
+            yield return null;
+        }
     }
 
     #pragma warning disable 414
-    private readonly string TwitchHelpMessage = @"Use !{0} to do something.";
+    private readonly string TwitchHelpMessage = @"Use !{0} press 1/2/3/4/5/6 or !{0} press TL TM TR BL BM BR to press the arrow buttons in that positions. Use !{0} submit to press the submit button. Use !{0} cycle to press each arrow button once slowly.";
     #pragma warning restore 414
 
-    IEnumerator ProcessTwitchCommand (string Command) {
-      yield return null;
+    IEnumerator ProcessTwitchCommand (string input)
+    {
+        string[] validPositions = new string[] { "1", "2", "3", "4", "5", "6", "TL", "TM", "TR", "BL", "BM", "BR" };
+        string command = input.Trim().ToUpperInvariant();
+        List<string> parameters = command.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (command == "SUBMIT")
+        { 
+            submit.OnInteract();
+            yield return new WaitForSeconds(0.1f);
+        }
+        else if (command == "CYCLE")
+        {
+            yield return null;
+            for (int i = 0; i < 6; i++)
+            {
+                arrows[i].OnInteract();
+                yield return new WaitForSeconds(1);
+            }
+        }
+        else if (parameters.First() == "PRESS")
+        {
+            parameters.Remove("PRESS");
+            if (!parameters.All(x => validPositions.Contains(x)))
+                yield return "sendtochaterror Invalid position";
+            yield return null;
+            foreach (string position in parameters)
+            {
+                arrows[Array.IndexOf(validPositions, position) % 6].OnInteract();
+                yield return new WaitForSeconds(0.1f);
+            }
+        }
     }
 
-    IEnumerator TwitchHandleForcedSolve () {
-      yield return null;
+    IEnumerator TwitchHandleForcedSolve ()
+    {
+        foreach (int movement in generatedPath)
+        {
+            for (int i = 0; i < 6; i++)
+            {
+                if (allValues[i] == movement)
+                {
+                    arrows[i].OnInteract();
+                    yield return new WaitForSeconds(0.1f);
+                    break;
+                }
+            }
+        }
+        submit.OnInteract();
+        while (!moduleSolved)
+            yield return true;
     }
 }

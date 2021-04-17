@@ -14,7 +14,7 @@ MonoBehaviour:
   id: stupidSlots
   title: Stupid Slots
   author: Danny7007
-  description: 'Somehow substantially sillier
+  description: 'Somehow substantially sillier.
 
 
     Module Created by Danny7007
@@ -26,4 +26,4 @@ MonoBehaviour:
     Manual can be found at ktane.timwi.de'
   version: 1.0.0
   outputFolder: build
-  previewImage: {fileID: 0}
+  previewImage: {fileID: 2800000, guid: 47bc1d644ac659746819a5dd4f02deb5, type: 3}
