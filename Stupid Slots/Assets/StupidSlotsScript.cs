@@ -50,6 +50,8 @@ public class StupidSlotsScript : MonoBehaviour {
     List<int> generatedPath = new List<int>();
     List<int> allAnswers = new List<int>();
 
+    bool interacted;
+
     void Awake ()
     {
         moduleId = moduleIdCounter++;     
@@ -69,6 +71,8 @@ public class StupidSlotsScript : MonoBehaviour {
 
     void ArrowPress(int pos)
     {
+        if (allValues[pos] != 0)
+            interacted = true;
         Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, arrows[pos].transform);
         arrows[pos].AddInteractionPunch(0.2f);
         if (moduleSolved || isAnimating) return;
@@ -196,8 +200,13 @@ public class StupidSlotsScript : MonoBehaviour {
                 case 0: if (number % 5 == operationResults[i]) validities[i] = true; break; //mod 5 will never be greater than 5, so we don't need to account for the +5 case. 
                 case 1: if ((number - 1) % 9 + 1 == operationResults[i] || (number - 1) % 9 + 1 == operationResults[i] + 5) validities[i] = true; break;
                 case 2:
-                    if (operationResults[i] == 0) break; // Make sure to account for divisibility by 0.
-                    if (number % operationResults[i] == 0 || number % (operationResults[i] + 5) == 0) validities[i] = true; break;
+                    if (operationResults[i] == 0)
+                    {
+                        if (number % 5 == 0)
+                            validities[i] = true;
+                    }
+                    else if (number % operationResults[i] == 0 || number % (operationResults[i] + 5) == 0) validities[i] = true;
+                    break;
                 case 3: if ((number / 100) == operationResults[i] || (number / 100) == operationResults[i] + 5) validities[i] = true; break;
                 case 4: if ((number % 100 / 10) == operationResults[i] || number % 100 / 10 == operationResults[i] + 5) validities[i] = true; break;
             }
@@ -255,6 +264,7 @@ public class StupidSlotsScript : MonoBehaviour {
             GetComponent<KMBombModule>().HandleStrike();
             generatedPath.Clear();
             GetStartingNum();
+            interacted = false;
         }
         yield return null;
     }
@@ -306,20 +316,28 @@ public class StupidSlotsScript : MonoBehaviour {
 
     IEnumerator TwitchHandleForcedSolve ()
     {
-        foreach (int movement in generatedPath)
+        if (interacted)
         {
-            for (int i = 0; i < 6; i++)
+            moduleSolved = true;
+            GetComponent<KMBombModule>().HandlePass();
+        }
+        else
+        {
+            foreach (int movement in generatedPath)
             {
-                if (allValues[i] == movement)
+                for (int i = 0; i < 6; i++)
                 {
-                    arrows[i].OnInteract();
-                    yield return new WaitForSeconds(0.1f);
-                    break;
+                    if (allValues[i] == movement)
+                    {
+                        arrows[i].OnInteract();
+                        yield return new WaitForSeconds(0.1f);
+                        break;
+                    }
                 }
             }
+            submit.OnInteract();
+            while (!moduleSolved)
+                yield return true;
         }
-        submit.OnInteract();
-        while (!moduleSolved)
-            yield return true;
     }
 }
