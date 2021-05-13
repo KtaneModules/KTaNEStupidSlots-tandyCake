@@ -19,7 +19,7 @@ public class StupidSlotsScript : MonoBehaviour {
     public Font comicSans;
     public Material comicSansMat;
 
-    private int[][] orders = { new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }, new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }, new int[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 } };
+    private int[][] orders = new int[][]{ Enumerable.Range(0, 10).ToArray(), Enumerable.Range(0, 10).ToArray(), Enumerable.Range(0, 10).ToArray() };
     private Material[][] slotColors = new Material[3][] { new Material[10], new Material[10], new Material[10] };
     private Material[][] slotTextColors = new Material[3][] { new Material[10], new Material[10], new Material[10] };
     private Font[][] slotFonts = new Font[3][] { new Font[10], new Font[10], new Font[10] };
@@ -50,6 +50,7 @@ public class StupidSlotsScript : MonoBehaviour {
     List<int> generatedPath = new List<int>();
     List<int> allAnswers = new List<int>();
 
+    int spinCount = 0;
     bool interacted;
 
     void Awake ()
@@ -127,14 +128,13 @@ public class StupidSlotsScript : MonoBehaviour {
             }
             do
             {
-                int[] tempOrder = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
-                tempOrder.Shuffle();
+                int[] tempOrder = Enumerable.Range(0,10).ToArray().Shuffle();
                 for (int i = 0; i < 10; i++)
                     slotColors[slotIndex][i] = colors[tempOrder[i]];
                 tempOrder.Shuffle();
                 for (int i = 0; i < 10; i++)
                     slotTextColors[slotIndex][i] = colors[tempOrder[i]];
-            } while (slotColors[slotIndex].Any(x => slotTextColors[slotIndex][Array.IndexOf(slotColors[slotIndex], x)] == x));
+            } while (Enumerable.Range(0,10).Any(x => slotColors[slotIndex][x] == slotTextColors[slotIndex][x]));
         }
     }
     void SetDisplays()
@@ -270,6 +270,18 @@ public class StupidSlotsScript : MonoBehaviour {
     }
     IEnumerator Spin()
     {
+        spinCount++;
+        if (spinCount > 100)
+        {
+            Vector3 movement = new Vector3(UnityEngine.Random.Range(-10, 11), 0, UnityEngine.Random.Range(-10, 11));
+            for (int i = 0; i < 500; i++)
+            {
+                Audio.PlaySoundAtTransform("boing", submit.transform);
+                submit.transform.localEulerAngles += new Vector3(0, 8, 0);
+                submit.transform.localPosition += 0.001f * movement;
+                yield return null;
+            }
+        }
         for (int i = 0; i < 45; i++)
         {
             submit.transform.localEulerAngles += new Vector3(0, 8, 0);
@@ -304,7 +316,10 @@ public class StupidSlotsScript : MonoBehaviour {
         {
             parameters.Remove("PRESS");
             if (!parameters.All(x => validPositions.Contains(x)))
+            {
                 yield return "sendtochaterror Invalid position";
+                yield break;
+            }
             yield return null;
             foreach (string position in parameters)
             {
@@ -316,7 +331,7 @@ public class StupidSlotsScript : MonoBehaviour {
 
     IEnumerator TwitchHandleForcedSolve ()
     {
-        if (interacted)
+     if (interacted)
         {
             moduleSolved = true;
             GetComponent<KMBombModule>().HandlePass();
