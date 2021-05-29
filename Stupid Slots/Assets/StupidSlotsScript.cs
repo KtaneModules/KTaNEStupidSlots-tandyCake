@@ -19,26 +19,11 @@ public class StupidSlotsScript : MonoBehaviour {
     public Font comicSans;
     public Material comicSansMat;
 
-    private int[][] orders = new int[][]{ Enumerable.Range(0, 10).ToArray(), Enumerable.Range(0, 10).ToArray(), Enumerable.Range(0, 10).ToArray() };
+    private int[][] orders = new int[3][].Select(x => x = Enumerable.Range(0,10).ToArray()).ToArray();
     private Material[][] slotColors = new Material[3][] { new Material[10], new Material[10], new Material[10] };
     private Material[][] slotTextColors = new Material[3][] { new Material[10], new Material[10], new Material[10] };
-    private Font[][] slotFonts = new Font[3][] { new Font[10], new Font[10], new Font[10] };
-    private Material[][] slotFontMats = new Material[3][] { new Material[10], new Material[10], new Material[10] };
-    private Vector3[][][] slotFontPosisions = new Vector3[3][][] { new Vector3[10][], new Vector3[10][], new Vector3[10][] };
+    private FontInfo[][] slotFonts;
 
-    private Vector3[][] fontPositions = new Vector3[][] //Stores the position and scale info for each font to be centered on the display.
-    {
-        new Vector3[] { new Vector3(0,-1,4), Vector3.one }, //Crazysk8 
-        new Vector3[] { new Vector3(-0.2f,0,4), Vector3.one }, //Fantastic Party
-        new Vector3[] { new Vector3(0,-0.5f,4), 0.9f*Vector3.one }, //Klotz
-        new Vector3[] { new Vector3(0,0,4), 0.8f*Vector3.one }, //Lobster
-        new Vector3[] { new Vector3(0,1.5f,4), 0.8f*Vector3.one }, //Nadine
-        new Vector3[] { new Vector3(0,-1.5f,4), Vector3.one }, //Pacifico
-        new Vector3[] { new Vector3(0,0,4), 0.5f*Vector3.one }, //Rock Salt
-        new Vector3[] { new Vector3(0.25f,1,4), new Vector3(1, 0.8f ,1) }, //Sabitype
-        new Vector3[] { new Vector3(0,-0.5f,4), Vector3.one }, //Wacky Sushi
-        new Vector3[] { new Vector3(0.5f,0.5f,4), new Vector3(1, 0.9f, 1) } //Watermelon
-    };
     static int moduleIdCounter = 1;
     int moduleId;
     private bool moduleSolved;
@@ -55,6 +40,19 @@ public class StupidSlotsScript : MonoBehaviour {
 
     void Awake ()
     {
+        slotFonts = new FontInfo[3][].Select(x => new FontInfo[]
+        {
+            new FontInfo(fonts[0], fontMats[0], new Vector3(0,-1,4), Vector3.one),
+            new FontInfo(fonts[1], fontMats[1], new Vector3(-0.2f,0,4), Vector3.one),
+            new FontInfo(fonts[2], fontMats[2], new Vector3(0,-0.5f,4), 0.9f*Vector3.one),
+            new FontInfo(fonts[3], fontMats[3], new Vector3(0,0,4), 0.8f*Vector3.one),
+            new FontInfo(fonts[4], fontMats[4], new Vector3(0,1.5f,4), 0.8f*Vector3.one),
+            new FontInfo(fonts[5], fontMats[5], new Vector3(0,-1.5f,4), Vector3.one),
+            new FontInfo(fonts[6], fontMats[6], new Vector3(0,0,4), 0.5f*Vector3.one),
+            new FontInfo(fonts[7], fontMats[7], new Vector3(0.25f,1,4), new Vector3(1, 0.8f, 1)),
+            new FontInfo(fonts[8], fontMats[8], new Vector3(0,-0.5f,4), Vector3.one),
+            new FontInfo(fonts[9], fontMats[9], new Vector3(0.5f,0.5f,4), new Vector3(1, 0.9f, 1))
+        }).ToArray();
         moduleId = moduleIdCounter++;     
         foreach (KMSelectable arrow in arrows)
             arrow.OnInteract += delegate () { ArrowPress(Array.IndexOf(arrows,arrow)); return false; };
@@ -77,7 +75,7 @@ public class StupidSlotsScript : MonoBehaviour {
         Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, arrows[pos].transform);
         arrows[pos].AddInteractionPunch(0.2f);
         if (moduleSolved || isAnimating) return;
-        currentValue = Mod((currentValue + allValues[pos]), 1000);
+        currentValue = Mod(currentValue + allValues[pos], 1000);
         SetDisplays();
     }
 
@@ -92,12 +90,9 @@ public class StupidSlotsScript : MonoBehaviour {
                 UnityEngine.Random.Range(1, 16) * 2 - 1,
                 UnityEngine.Random.Range(1, 16) * -2,
                 UnityEngine.Random.Range(1, 16) * -2 + 1,
-            };
-            relevantValues.Shuffle();
-            valuesUpper = new int[] { 0, relevantValues[0], relevantValues[1] };
-            valuesLower = new int[] { 0, relevantValues[2], relevantValues[3] };
-            valuesUpper.Shuffle();
-            valuesLower.Shuffle();
+            }.Shuffle();
+            valuesUpper = new int[] { 0, relevantValues[0], relevantValues[1] }.Shuffle();
+            valuesLower = new int[] { 0, relevantValues[2], relevantValues[3] }.Shuffle();
             allValues = valuesUpper.Concat(valuesLower).ToArray();
             relevantDigits = new int[]
             {
@@ -119,13 +114,7 @@ public class StupidSlotsScript : MonoBehaviour {
     {
         for (int slotIndex = 0; slotIndex < 3; slotIndex++)
         {
-            orders[slotIndex].Shuffle();
-            for (int i = 0; i < 10; i++)
-            {
-                slotFonts[slotIndex][i] = fonts[orders[slotIndex][i]];
-                slotFontMats[slotIndex][i] = fontMats[orders[slotIndex][i]];
-                slotFontPosisions[slotIndex][i] = fontPositions[orders[slotIndex][i]];
-            }
+            slotFonts[slotIndex].Shuffle();
             do
             {
                 int[] tempOrder = Enumerable.Range(0,10).ToArray().Shuffle();
@@ -134,7 +123,7 @@ public class StupidSlotsScript : MonoBehaviour {
                 tempOrder.Shuffle();
                 for (int i = 0; i < 10; i++)
                     slotTextColors[slotIndex][i] = colors[tempOrder[i]];
-            } while (Enumerable.Range(0,10).Any(x => slotColors[slotIndex][x] == slotTextColors[slotIndex][x]));
+            } while (Enumerable.Range(0,10).Any(x => slotColors[slotIndex][x] == slotTextColors[slotIndex][x])); //Checks
         }
     }
     void SetDisplays()
@@ -142,14 +131,14 @@ public class StupidSlotsScript : MonoBehaviour {
         for (int slotIndex = 0; slotIndex < 3; slotIndex++)
         {
             TextMesh targetMesh = displays[slotIndex].GetComponentInChildren<TextMesh>();
-            int digit = new int[] { currentValue / 100, currentValue / 10 % 10, currentValue % 10 }[slotIndex]; 
+            int digit = currentValue.ToString().PadLeft(3, '0')[slotIndex] - '0'; 
             displays[slotIndex].GetComponent<MeshRenderer>().material = slotColors[slotIndex][digit];
             targetMesh.text = digit.ToString();
             targetMesh.color = slotTextColors[slotIndex][digit].color;
-            targetMesh.font = slotFonts[slotIndex][digit];
-            targetMesh.GetComponent<MeshRenderer>().material = slotFontMats[slotIndex][digit];
-            targetMesh.transform.localPosition = slotFontPosisions[slotIndex][digit][0];
-            targetMesh.transform.localScale    = slotFontPosisions[slotIndex][digit][1];
+            targetMesh.font = slotFonts[slotIndex][digit].font;
+            targetMesh.GetComponent<MeshRenderer>().material = slotFonts[slotIndex][digit].mat;
+            targetMesh.transform.localPosition = slotFonts[slotIndex][digit].position;
+            targetMesh.transform.localScale = slotFonts[slotIndex][digit].scale;
         }
     }
     void GetStartingNum() //Generates a random number which is valid, and then backtracks from there to guarantee a solution.
@@ -199,16 +188,9 @@ public class StupidSlotsScript : MonoBehaviour {
             {
                 case 0: if (number % 5 == operationResults[i]) validities[i] = true; break; //mod 5 will never be greater than 5, so we don't need to account for the +5 case. 
                 case 1: if ((number - 1) % 9 + 1 == operationResults[i] || (number - 1) % 9 + 1 == operationResults[i] + 5) validities[i] = true; break;
-                case 2:
-                    if (operationResults[i] == 0)
-                    {
-                        if (number % 5 == 0)
-                            validities[i] = true;
-                    }
-                    else if (number % operationResults[i] == 0 || number % (operationResults[i] + 5) == 0) validities[i] = true;
-                    break;
+                case 2: if ((operationResults[i] != 0 && number % operationResults[i] == 0) || number % (operationResults[i] + 5) == 0) validities[i] = true; break; //Needs to abort the calc if we're checking for divisibility by 0
                 case 3: if ((number / 100) == operationResults[i] || (number / 100) == operationResults[i] + 5) validities[i] = true; break;
-                case 4: if ((number % 100 / 10) == operationResults[i] || number % 100 / 10 == operationResults[i] + 5) validities[i] = true; break;
+                case 4: if (number % 100 / 10 == operationResults[i] || number % 100 / 10 == operationResults[i] + 5) validities[i] = true; break;
             }
         }
         if (relevantDigits.Select(x => Mod(x, 10)).Contains(number % 10))
@@ -227,12 +209,11 @@ public class StupidSlotsScript : MonoBehaviour {
         submit.AddInteractionPunch(10);
         StartCoroutine(Spin());
         if (moduleSolved) yield break;
-        bool willSolve;
+
         Audio.PlaySoundAtTransform("bogosort", transform);
-        
         Debug.LogFormat("[Stupid Slots #{0}] Submitted value {1}.", moduleId, currentValue);
-        willSolve = CheckValidities(currentValue);
-        if (willSolve) moduleSolved = true;
+        if (CheckValidities(currentValue))
+            moduleSolved = true;
 
         isAnimating = true;
         for (int i = 0; i < 22; i++)
@@ -242,7 +223,7 @@ public class StupidSlotsScript : MonoBehaviour {
             yield return new WaitForSecondsRealtime(0.25f);
         }
         isAnimating = false;
-        if (willSolve)
+        if (moduleSolved)
         {
             Debug.LogFormat("[Stupid Slots #{0}] That was correct. Module solved.", moduleId);
             for (int i = 0; i < 3; i++)
@@ -274,6 +255,8 @@ public class StupidSlotsScript : MonoBehaviour {
         if (spinCount > 100)
         {
             Vector3 movement = new Vector3(UnityEngine.Random.Range(-10, 11), 0, UnityEngine.Random.Range(-10, 11));
+            for (int i = 0; i < 3; i++)
+                displays[i].GetComponentInChildren<TextMesh>().text = ":|";
             for (int i = 0; i < 500; i++)
             {
                 Audio.PlaySoundAtTransform("boing", submit.transform);
@@ -281,6 +264,8 @@ public class StupidSlotsScript : MonoBehaviour {
                 submit.transform.localPosition += 0.001f * movement;
                 yield return null;
             }
+            for (int i = 0; i < 3; i++)
+                displays[i].GetComponentInChildren<TextMesh>().text = ":)";
         }
         for (int i = 0; i < 45; i++)
         {
@@ -290,7 +275,7 @@ public class StupidSlotsScript : MonoBehaviour {
     }
 
     #pragma warning disable 414
-    private readonly string TwitchHelpMessage = @"Use !{0} press 1/2/3/4/5/6 or !{0} press TL TM TR BL BM BR to press the arrow buttons in that positions. Use !{0} submit to press the submit button. Use !{0} cycle to press each arrow button once slowly.";
+    private readonly string TwitchHelpMessage = @"Use <!{0} press 1 2 3 4 5 6> or <!{0} press TL TM TR BL BM BR> to press the arrow buttons in that positions. Use <!{0} submit> to press the submit button. Use <!{0} cycle> to press each arrow button once slowly.";
     #pragma warning restore 414
 
     IEnumerator ProcessTwitchCommand (string input)
@@ -299,9 +284,10 @@ public class StupidSlotsScript : MonoBehaviour {
         string command = input.Trim().ToUpperInvariant();
         List<string> parameters = command.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList();
         if (command == "SUBMIT")
-        { 
+        {
             submit.OnInteract();
             yield return new WaitForSeconds(0.1f);
+            yield return moduleSolved ? "solve" : "strike";
         }
         else if (command == "CYCLE")
         {
@@ -315,7 +301,7 @@ public class StupidSlotsScript : MonoBehaviour {
         else if (parameters.First() == "PRESS")
         {
             parameters.Remove("PRESS");
-            if (!parameters.All(x => validPositions.Contains(x)))
+            if (parameters.Any(x => !validPositions.Contains(x)))
             {
                 yield return "sendtochaterror Invalid position";
                 yield break;
