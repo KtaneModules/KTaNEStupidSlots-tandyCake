@@ -34,6 +34,11 @@ public class StupidSlotsScript : MonoBehaviour {
     int[] relevantDigits;
     List<int> generatedPath = new List<int>();
     List<int> allAnswers = new List<int>();
+    private int[][] forbiddenRules = new int[][]
+    {
+        new[] {2, 1 },
+        new[] {2, 2 },
+    };
 
     int spinCount = 0;
     bool interacted;
@@ -42,16 +47,16 @@ public class StupidSlotsScript : MonoBehaviour {
     {
         slotFonts = new FontInfo[3][].Select(x => new FontInfo[]
         {
-            new FontInfo(fonts[0], fontMats[0], new Vector3(0,-1,4), Vector3.one),
-            new FontInfo(fonts[1], fontMats[1], new Vector3(-0.2f,0,4), Vector3.one),
-            new FontInfo(fonts[2], fontMats[2], new Vector3(0,-0.5f,4), 0.9f*Vector3.one),
-            new FontInfo(fonts[3], fontMats[3], new Vector3(0,0,4), 0.8f*Vector3.one),
-            new FontInfo(fonts[4], fontMats[4], new Vector3(0,1.5f,4), 0.8f*Vector3.one),
-            new FontInfo(fonts[5], fontMats[5], new Vector3(0,-1.5f,4), Vector3.one),
-            new FontInfo(fonts[6], fontMats[6], new Vector3(0,0,4), 0.5f*Vector3.one),
-            new FontInfo(fonts[7], fontMats[7], new Vector3(0.25f,1,4), new Vector3(1, 0.8f, 1)),
-            new FontInfo(fonts[8], fontMats[8], new Vector3(0,-0.5f,4), Vector3.one),
-            new FontInfo(fonts[9], fontMats[9], new Vector3(0.5f,0.5f,4), new Vector3(1, 0.9f, 1))
+            new FontInfo(fonts[0], fontMats[0], new Vector3(0, 4, 0.5f),  Vector3.one), 
+            new FontInfo(fonts[1], fontMats[1], new Vector3(-0.2f, 4, 0),  Vector3.one), 
+            new FontInfo(fonts[2], fontMats[2], new Vector3(0, 4, 0.75f),  0.9f*Vector3.one), 
+            new FontInfo(fonts[3], fontMats[3], new Vector3(0, 4, 0),  0.8f*Vector3.one),
+            new FontInfo(fonts[4], fontMats[4], new Vector3(0, 4, -0.5f),  0.8f*Vector3.one),
+            new FontInfo(fonts[5], fontMats[5], new Vector3(0, 4, 1.5f),  Vector3.one), 
+            new FontInfo(fonts[6], fontMats[6], new Vector3(0, 4, 0),  0.5f*Vector3.one), 
+            new FontInfo(fonts[7], fontMats[7], new Vector3(0, 4, -0.5f),  new Vector3(1,  0.8f,  1)), 
+            new FontInfo(fonts[8], fontMats[8], new Vector3(0, 4, 0),  Vector3.one), 
+            new FontInfo(fonts[9], fontMats[9], new Vector3(0.5f, 4, 0),  new Vector3(1,  0.9f,  1))
         }).ToArray();
         moduleId = moduleIdCounter++;     
         foreach (KMSelectable arrow in arrows)
@@ -106,7 +111,9 @@ public class StupidSlotsScript : MonoBehaviour {
                 if (CheckValidities(i))
                     allAnswers.Add(i);
             }
-        } while (allAnswers.Count < 50);
+        } while (allAnswers.Count < 50 ||
+                (forbiddenRules.Any(comb => (comb[0] == Mod(relevantDigits[0],5) && comb[1] == Mod(relevantDigits[1],5)) || (comb[0] == Mod(relevantDigits[2], 5) && comb[1] == Mod(relevantDigits[3], 5)))) ||
+                (Mod(relevantDigits[0],5) == Mod(relevantDigits[2], 5) && Mod(relevantDigits[1],5) == Mod(relevantDigits[3],5)));
     }
 
 

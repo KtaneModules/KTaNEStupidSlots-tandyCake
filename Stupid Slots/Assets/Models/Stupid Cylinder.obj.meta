@@ -5,12 +5,18 @@ ModelImporter:
   fileIDToRecycleName:
     100000: group_0_16089887
     100002: //RootNode
+    100004: default
     400000: group_0_16089887
     400002: //RootNode
+    400004: default
     2100000: group_0_16089887Mat
+    2100002: defaultMat
     2300000: group_0_16089887
+    2300002: default
     3300000: group_0_16089887
+    3300002: default
     4300000: group_0_16089887
+    4300002: default
   externalObjects: {}
   materials:
     importMaterials: 1
