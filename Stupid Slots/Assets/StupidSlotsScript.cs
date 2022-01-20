@@ -27,21 +27,20 @@ public class StupidSlotsScript : MonoBehaviour {
     static int moduleIdCounter = 1;
     int moduleId;
     private bool moduleSolved;
+    private bool solving;
     bool isAnimating = false;
     int currentValue;
     int[] valuesUpper, valuesLower = new int[3];
     int[] allValues = new int[6];
     int[] relevantDigits;
-    List<int> generatedPath = new List<int>();
     List<int> allAnswers = new List<int>();
-    private int[][] forbiddenRules = new int[][]
+    private readonly int[][] forbiddenRules = new int[][]
     {
-        new[] {2, 1 },
-        new[] {2, 2 },
+        new[] { 2, 1 },
+        new[] { 2, 2 },
     };
 
     int spinCount = 0;
-    bool interacted;
 
     void Awake ()
     {
@@ -75,11 +74,9 @@ public class StupidSlotsScript : MonoBehaviour {
 
     void ArrowPress(int pos)
     {
-        if (allValues[pos] != 0)
-            interacted = true;
         Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, arrows[pos].transform);
         arrows[pos].AddInteractionPunch(0.2f);
-        if (moduleSolved || isAnimating) return;
+        if (solving || isAnimating) return;
         currentValue = Mod(currentValue + allValues[pos], 1000);
         SetDisplays();
     }
@@ -152,12 +149,7 @@ public class StupidSlotsScript : MonoBehaviour {
     {
         currentValue = allAnswers.PickRandom();
         for (int i = 0; i < UnityEngine.Random.Range(10,21); i++)
-        {
-            int num = relevantDigits.PickRandom();
-            generatedPath.Add(num);
-            currentValue = Mod(currentValue - num, 1000);
-        }
-        generatedPath.Reverse();
+            currentValue = Mod(currentValue - relevantDigits.PickRandom(), 1000);
         SetDisplays();
     }
     void LogValidities()
@@ -215,12 +207,12 @@ public class StupidSlotsScript : MonoBehaviour {
         Audio.PlaySoundAtTransform("boing", submit.transform);
         submit.AddInteractionPunch(10);
         StartCoroutine(Spin());
-        if (moduleSolved) yield break;
+        if (solving) yield break;
 
         Audio.PlaySoundAtTransform("bogosort", transform);
         Debug.LogFormat("[Stupid Slots #{0}] Submitted value {1}.", moduleId, currentValue);
         if (CheckValidities(currentValue))
-            moduleSolved = true;
+            solving = true;
 
         isAnimating = true;
         for (int i = 0; i < 22; i++)
@@ -230,7 +222,7 @@ public class StupidSlotsScript : MonoBehaviour {
             yield return new WaitForSecondsRealtime(0.25f);
         }
         isAnimating = false;
-        if (moduleSolved)
+        if (solving)
         {
             Debug.LogFormat("[Stupid Slots #{0}] That was correct. Module solved.", moduleId);
             for (int i = 0; i < 3; i++)
@@ -241,18 +233,17 @@ public class StupidSlotsScript : MonoBehaviour {
                 chosenMesh.font = comicSans;
                 chosenMesh.GetComponent<MeshRenderer>().material = comicSansMat;
                 chosenMesh.color = colors[8].color; //sets text color to white
-                chosenMesh.transform.localPosition = new Vector3(0, -1, 4);
-                chosenMesh.transform.localScale = Vector3.one * 0.85f;
+                chosenMesh.transform.localPosition = new Vector3(0, 4.025f, 1);
+                chosenMesh.transform.localScale = Vector3.one * 0.8f;
             }
+            moduleSolved = true;
             GetComponent<KMBombModule>().HandlePass();
         }
         else
         {
             Debug.LogFormat("[Stupid Slots #{0}] That was incorrect. Strike incurred.", moduleId);
             GetComponent<KMBombModule>().HandleStrike();
-            generatedPath.Clear();
             GetStartingNum();
-            interacted = false;
         }
         yield return null;
     }
@@ -284,7 +275,11 @@ public class StupidSlotsScript : MonoBehaviour {
     #pragma warning disable 414
     private readonly string TwitchHelpMessage = @"Use <!{0} press 1 2 3 4 5 6> or <!{0} press TL TM TR BL BM BR> to press the arrow buttons in that positions. Use <!{0} submit> to press the submit button. Use <!{0} cycle> to press each arrow button once slowly.";
     #pragma warning restore 414
-
+    IEnumerator Press(KMSelectable btn, float delay)
+    {
+        btn.OnInteract();
+        yield return new WaitForSeconds(delay);
+    }
     IEnumerator ProcessTwitchCommand (string input)
     {
         string[] validPositions = new string[] { "1", "2", "3", "4", "5", "6", "TL", "TM", "TR", "BL", "BM", "BR" };
@@ -292,18 +287,14 @@ public class StupidSlotsScript : MonoBehaviour {
         List<string> parameters = command.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList();
         if (command == "SUBMIT")
         {
-            submit.OnInteract();
-            yield return new WaitForSeconds(0.1f);
-            yield return moduleSolved ? "solve" : "strike";
+            yield return Press(submit, 0.1f);
+            yield return solving ? "solve" : "strike";
         }
         else if (command == "CYCLE")
         {
             yield return null;
             for (int i = 0; i < 6; i++)
-            {
-                arrows[i].OnInteract();
-                yield return new WaitForSeconds(1);
-            }
+                yield return Press(arrows[i], 0.15f);
         }
         else if (parameters.First() == "PRESS")
         {
@@ -315,37 +306,53 @@ public class StupidSlotsScript : MonoBehaviour {
             }
             yield return null;
             foreach (string position in parameters)
-            {
-                arrows[Array.IndexOf(validPositions, position) % 6].OnInteract();
-                yield return new WaitForSeconds(0.1f);
-            }
+                yield return Press(arrows[Array.IndexOf(validPositions, position) % 6], 0.15f);
         }
     }
 
     IEnumerator TwitchHandleForcedSolve ()
     {
-     if (interacted)
+        foreach (Movement m in FindPath(currentValue))
+            yield return Press(arrows[Array.IndexOf(allValues, m.end - m.start)], 0.15f);
+        yield return Press(submit, 0);
+        while (!moduleSolved)
+            yield return true;
+    }
+    IEnumerable<Movement> FindPath(int start)
+    {
+        if (allAnswers.Contains(start))
+            yield break;
+        int foundEndpoint = -1;
+        Queue<int> q = new Queue<int>();
+        List<Movement> allMoves = new List<Movement>();
+        q.Enqueue(start);
+        while (q.Count > 0)
         {
-            moduleSolved = true;
-            GetComponent<KMBombModule>().HandlePass();
-        }
-        else
-        {
-            foreach (int movement in generatedPath)
+            int cur = q.Dequeue();
+            if (allAnswers.Contains(cur))
             {
-                for (int i = 0; i < 6; i++)
-                {
-                    if (allValues[i] == movement)
-                    {
-                        arrows[i].OnInteract();
-                        yield return new WaitForSeconds(0.1f);
-                        break;
-                    }
-                }
+                foundEndpoint = cur;
+                break;
             }
-            submit.OnInteract();
-            while (!moduleSolved)
-                yield return true;
+            for (int i = 0; i < 4; i++)
+            {
+                int add = Mod(cur + relevantDigits[i], 1000);
+                q.Enqueue(add);
+                allMoves.Add(new Movement(cur, add));
+            }
         }
+        Movement lastMove = allMoves.First(x => x.end == foundEndpoint);
+        yield return lastMove;
+        while (lastMove.start != start)
+        {
+            lastMove = allMoves.First(x => x.end == lastMove.start);
+            yield return lastMove;
+        }
+    }
+    class Movement
+    {
+        public int start;
+        public int end;
+        public Movement(int s, int e) { start = s; end = e; }
     }
 }
